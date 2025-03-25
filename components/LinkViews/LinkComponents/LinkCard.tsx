@@ -153,7 +153,6 @@ export default function LinkCard({ link, columns, editMode }: Props) {
   const selectable =
     editMode &&
     (permissions === true || permissions?.canCreate || permissions?.canDelete);
-
   return (
     <div
       ref={ref}

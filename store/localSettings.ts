@@ -15,6 +15,7 @@ type LocalSettings = {
     collection: boolean;
     preserved_formats: boolean;
     date: boolean;
+    link_image_blur: boolean;
   };
   columns: number;
   sortBy?: Sort;
@@ -41,6 +42,7 @@ const useLocalSettingsStore = create<LocalSettingsStore>((set) => ({
       collection: true,
       preserved_formats: true,
       date: true,
+      link_image_blur: false,
     },
     columns: 0,
     sortBy: Sort.DateNewestFirst,
@@ -102,6 +104,7 @@ const useLocalSettingsStore = create<LocalSettingsStore>((set) => ({
     localStorage.setItem("columns", columns.toString());
 
     const storedShow = localStorage.getItem("show");
+    
     const defaultShow = {
       link: true,
       name: true,

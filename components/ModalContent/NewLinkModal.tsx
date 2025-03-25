@@ -10,33 +10,38 @@ import { useCollections } from "@/hooks/store/collections";
 import { useAddLink } from "@/hooks/store/links";
 import toast from "react-hot-toast";
 import { PostLinkSchemaType } from "@/lib/shared/schemaValidation";
+import { useUser } from "@/hooks/store/user";
+import { CollectionIncludingMembersAndLinkCount } from "@/types/global";
 
 type Props = {
   onClose: Function;
+  parent?: CollectionIncludingMembersAndLinkCount;
 };
 
-export default function NewLinkModal({ onClose }: Props) {
+export default function NewLinkModal({ onClose, parent }: Props) {
   const { t } = useTranslation();
+  const { data: collections = [] } = useCollections();
+  const { data: user = {} } = useUser();
+
   const initial = {
     name: "",
     url: "",
     description: "",
     type: "url",
     tags: [],
-    collection: {
-      id: undefined,
-      name: "",
-    },
+    collection: parent ? { id: parent.id, name: parent.name } : {},
   } as PostLinkSchemaType;
 
   const [link, setLink] = useState<PostLinkSchemaType>(initial);
+  const [userCollections, setUserCollections] = useState<
+    CollectionIncludingMembersAndLinkCount[]
+  >([]);
 
   const addLink = useAddLink();
 
   const [submitLoader, setSubmitLoader] = useState(false);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const router = useRouter();
-  const { data: collections = [] } = useCollections();
 
   const setCollection = (e: any) => {
     if (e?.__isNew__) e.value = undefined;
@@ -70,7 +75,30 @@ export default function NewLinkModal({ onClose }: Props) {
         ...initial,
         collection: { name: "Unorganized" },
       });
-  }, []);
+
+    // 사용자가 권한이 있는 컬렉션 필터링하여 설정
+    filterCollections();
+  }, [collections, user.id]);
+
+  function filterCollections() {
+    const filtered = collections.filter(
+      (e) =>
+        e.ownerId === user.id ||
+        e.members.some(
+          (e) => 
+            e.userId === user.id && 
+            (e.canCreate || e.canUpdate || e.canDelete)
+        )
+    );
+    setUserCollections(filtered);
+
+    if (filtered.length === 1 && !link.collection?.id) {
+      setLink((prev) => ({
+        ...prev,
+        collection: { id: filtered[0].id, name: filtered[0].name },
+      }));
+    }
+  }
 
   const submit = async () => {
     if (!submitLoader) {

@@ -10,6 +10,8 @@ export default async function updateCollection(
   collectionId: number,
   body: UpdateCollectionSchemaType
 ) {
+  console.debug(`[DEBUG] updateCollection called with userId: ${userId}, collectionId: ${collectionId}, parentId: ${body.parentId}`);
+
   if (!collectionId)
     return { response: "Please choose a valid collection.", status: 401 };
 
@@ -31,30 +33,54 @@ export default async function updateCollection(
     collectionId,
   });
 
-  if (!(collectionIsAccessible?.ownerId === userId))
+  console.debug(`[DEBUG] Permission check for collection: ${collectionId}`, 
+    collectionIsAccessible ? 
+    `ownerId: ${collectionIsAccessible.ownerId}, userCanUpdate: ${collectionIsAccessible.members.some(m => m.userId === userId && m.canUpdate)}` : 
+    'No permission');
+
+  // 사용자가 컬렉션의 소유자이거나 업데이트 권한이 있는지 확인
+  const canUpdate =
+    collectionIsAccessible?.ownerId === userId ||
+    (collectionIsAccessible?.members && collectionIsAccessible.members.some(m => m.userId === userId && m.canUpdate));
+
+  if (!canUpdate)
     return { response: "Collection is not accessible.", status: 401 };
 
   if (data.parentId) {
     if (data.parentId !== "root") {
-      const findParentCollection = await prisma.collection.findUnique({
-        where: {
-          id: data.parentId,
-        },
-        select: {
-          ownerId: true,
-          parentId: true,
-        },
+      console.debug(`[DEBUG] Checking permissions for new parent collection: ${data.parentId}`);
+      
+      // 부모 컬렉션에 대한 권한 체크
+      const parentPermission = await getPermission({
+        userId,
+        collectionId: data.parentId,
       });
-
-      if (
-        findParentCollection?.ownerId !== userId ||
-        typeof data.parentId !== "number" ||
-        findParentCollection?.parentId === data.parentId
-      )
+      
+      console.debug(`[DEBUG] Parent permission check result:`, parentPermission ? 
+        `ownerId: ${parentPermission.ownerId}, canCreate: ${parentPermission.members.some(m => m.userId === userId && m.canCreate)}` : 
+        'No permission');
+      
+      // 사용자가 부모 컬렉션에 대한 생성 권한이 있는지 확인
+      const canCreateInParent = 
+        parentPermission?.ownerId === userId || 
+        parentPermission?.members.some(m => 
+          m.userId === userId && (m.canCreate || m.canUpdate || m.canDelete)
+        );
+      
+      // 부모 컬렉션 순환 참조 방지
+      const isCircularReference = 
+        typeof data.parentId !== "number" || 
+        parentPermission?.parentId === data.parentId;
+      
+      if (!canCreateInParent || isCircularReference) {
+        console.debug(`[DEBUG] User cannot create in parent collection. canCreateInParent: ${canCreateInParent}, isCircularReference: ${isCircularReference}`);
         return {
           response: "You are not authorized to create a sub-collection here.",
           status: 403,
         };
+      }
+      
+      console.debug(`[DEBUG] User has permission to move collection to parent: ${data.parentId}`);
     }
   }
 
@@ -63,42 +89,26 @@ export default async function updateCollection(
       a.findIndex((el) => el.userId === e.userId) === i &&
       e.userId !== collectionIsAccessible.ownerId
   );
+  
+  console.debug(`[DEBUG] Updating collection with ${uniqueMembers.length} unique members`);
 
-  const updatedCollection = await prisma.$transaction(async () => {
-    await prisma.usersAndCollections.deleteMany({
-      where: {
-        collection: {
-          id: collectionId,
-        },
-      },
-    });
-
-    return await prisma.collection.update({
+  return {
+    response: await prisma.collection.update({
       where: {
         id: collectionId,
       },
       data: {
-        name: data.name.trim(),
+        name: data.name,
         description: data.description,
         color: data.color,
         icon: data.icon,
         iconWeight: data.iconWeight,
         isPublic: data.isPublic,
-        parent:
-          data.parentId && data.parentId !== "root"
-            ? {
-                connect: {
-                  id: data.parentId,
-                },
-              }
-            : data.parentId === "root"
-              ? {
-                  disconnect: true,
-                }
-              : undefined,
+        parentId: data.parentId === "root" ? null : data.parentId,
         members: {
+          deleteMany: {},
           create: uniqueMembers.map((e) => ({
-            user: { connect: { id: e.userId } },
+            userId: e.userId,
             canCreate: e.canCreate,
             canUpdate: e.canUpdate,
             canDelete: e.canDelete,
@@ -113,17 +123,15 @@ export default async function updateCollection(
           include: {
             user: {
               select: {
-                image: true,
                 username: true,
                 name: true,
-                id: true,
+                image: true,
               },
             },
           },
         },
       },
-    });
-  });
-
-  return { response: updatedCollection, status: 200 };
+    }),
+    status: 200,
+  };
 }

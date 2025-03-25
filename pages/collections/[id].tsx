@@ -2,6 +2,7 @@ import {
   AccountSettings,
   CollectionIncludingMembersAndLinkCount,
   Sort,
+  CollectionSort,
   ViewMode,
 } from "@/types/global";
 import { useRouter } from "next/router";
@@ -28,6 +29,7 @@ import Icon from "@/components/Icon";
 import CollectionCard from "@/components/CollectionCard";
 import { IconWeight } from "@phosphor-icons/react";
 import PageHeader from "@/components/PageHeader";
+import CollectionSortDropdown from "@/components/CollectionSortDropdown";
 
 export default function Index() {
   const { t } = useTranslation();
@@ -40,6 +42,12 @@ export default function Index() {
   const [sortBy, setSortBy] = useState<Sort>(
     Number(localStorage.getItem("sortBy")) ?? Sort.DateNewestFirst
   );
+
+  const [collectionSortBy, setCollectionSortBy] = useState<CollectionSort>(
+    Number(localStorage.getItem("collectionSortBy")) ?? CollectionSort.NameAZ
+  );
+
+  const [sortedSubCollections, setSortedSubCollections] = useState<CollectionIncludingMembersAndLinkCount[]>([]);
 
   const { links, data } = useLinks({
     sort: sortBy,
@@ -56,6 +64,30 @@ export default function Index() {
       collections.find((e) => e.id === Number(router.query.id))
     );
   }, [router, collections]);
+
+  useEffect(() => {
+    if (activeCollection) {
+      const subCollections = collections.filter((e) => e.parentId === activeCollection?.id);
+      
+      const sortedCollections = JSON.parse(JSON.stringify(subCollections));
+      
+      if (collectionSortBy === CollectionSort.NameAZ) {
+        sortedCollections.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      } else if (collectionSortBy === CollectionSort.NameZA) {
+        sortedCollections.sort((a: any, b: any) => b.name.localeCompare(a.name));
+      } else if (collectionSortBy === CollectionSort.DateNewestFirst) {
+        sortedCollections.sort((a: any, b: any) => 
+          new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+        );
+      } else if (collectionSortBy === CollectionSort.DateOldestFirst) {
+        sortedCollections.sort((a: any, b: any) => 
+          new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime()
+        );
+      }
+      
+      setSortedSubCollections(sortedCollections);
+    }
+  }, [activeCollection, collections, collectionSortBy]);
 
   const { data: user = {} } = useUser();
 
@@ -96,6 +128,16 @@ export default function Index() {
   useEffect(() => {
     if (editMode) return setEditMode(false);
   }, [router]);
+
+  // 권한 상태 로깅
+  useEffect(() => {
+    console.debug(`[DEBUG] 현재 권한 상태:`, 
+      permissions === true ? 
+      '관리자 권한(소유자)' : 
+      permissions ? 
+        `직접 권한 또는 상속된 권한 (canCreate: ${permissions.canCreate}, canUpdate: ${permissions.canUpdate}, canDelete: ${permissions.canDelete}, inherited: ${permissions.inherited}, 상속된 소스: ${permissions.inheritedFromCollectionName})` : 
+        '권한 없음');
+  }, [permissions]);
 
   const [viewMode, setViewMode] = useState<ViewMode>(
     (localStorage.getItem("viewMode") as ViewMode) || ViewMode.Card
@@ -190,13 +232,19 @@ export default function Index() {
                       : t("view_team")}
                   </div>
                 </li>
-                {permissions === true && (
+                {(permissions === true || 
+                  (typeof permissions === 'object' && permissions !== false && 
+                    (permissions.canCreate || 
+                     permissions.canUpdate || 
+                     permissions.canDelete))) && (
                   <li>
                     <div
                       role="button"
                       tabIndex={0}
                       onClick={() => {
                         (document?.activeElement as HTMLElement)?.blur();
+                        console.debug(`[DEBUG] Create subcollection clicked. Permissions:`, 
+                          permissions === true ? 'isOwner' : `canCreate: ${permissions.canCreate}, canUpdate: ${permissions.canUpdate}, canDelete: ${permissions.canDelete}, inherited: ${permissions.inherited}, from: ${permissions.inheritedFromCollectionName}`);
                         setNewCollectionModal(true);
                       }}
                       className="whitespace-nowrap"
@@ -289,31 +337,41 @@ export default function Index() {
 
         {collections.some((e) => e.parentId === activeCollection?.id) ? (
           <>
-            <PageHeader
-              icon={"bi-folder"}
-              title={t("collections")}
-              description={
-                collections.filter((e) => e.parentId === activeCollection?.id)
-                  .length === 1
-                  ? t("showing_count_result", {
-                      count: collections.filter(
-                        (e) => e.parentId === activeCollection?.id
-                      ).length,
-                    })
-                  : t("showing_count_results", {
-                      count: collections.filter(
-                        (e) => e.parentId === activeCollection?.id
-                      ).length,
-                    })
-              }
-              className="scale-90 w-fit"
-            />
+            <div className="flex items-center justify-between">
+              <PageHeader
+                icon={"bi-folder"}
+                title={t("collections")}
+                description={
+                  collections.filter((e) => e.parentId === activeCollection?.id)
+                    .length === 1
+                    ? t("showing_count_result", {
+                        count: collections.filter(
+                          (e) => e.parentId === activeCollection?.id
+                        ).length,
+                      })
+                    : t("showing_count_results", {
+                        count: collections.filter(
+                          (e) => e.parentId === activeCollection?.id
+                        ).length,
+                      })
+                }
+                className="scale-90 w-fit"
+              />
+              
+              <div className="flex gap-3 justify-end">
+                <div className="relative mt-2">
+                  <CollectionSortDropdown 
+                    sortBy={collectionSortBy} 
+                    setSort={setCollectionSortBy} 
+                    t={t} 
+                  />
+                </div>
+              </div>
+            </div>
             <div className="grid 2xl:grid-cols-4 xl:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-5">
-              {collections
-                .filter((e) => e.parentId === activeCollection?.id)
-                .map((e, i) => {
-                  return <CollectionCard key={i} collection={e} />;
-                })}
+              {sortedSubCollections.map((e, i) => {
+                return <CollectionCard key={i} collection={e} />;
+              })}
             </div>
           </>
         ) : undefined}
@@ -326,15 +384,15 @@ export default function Index() {
           setSortBy={setSortBy}
           editMode={
             permissions === true ||
-            permissions?.canUpdate ||
-            permissions?.canDelete
+            (typeof permissions === 'object' && permissions !== false && 
+              (permissions.canUpdate || permissions.canDelete))
               ? editMode
               : undefined
           }
           setEditMode={
             permissions === true ||
-            permissions?.canUpdate ||
-            permissions?.canDelete
+            (typeof permissions === 'object' && permissions !== false && 
+              (permissions.canUpdate || permissions.canDelete))
               ? setEditMode
               : undefined
           }

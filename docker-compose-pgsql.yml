@@ -1,0 +1,11 @@
+version: "3.5"
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    restart: always
+    # network_mode: host
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - 5432:5432

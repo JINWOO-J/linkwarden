@@ -2,8 +2,7 @@ import CollectionCard from "@/components/CollectionCard";
 import { useState } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { useSession } from "next-auth/react";
-import SortDropdown from "@/components/SortDropdown";
-import { Sort } from "@/types/global";
+import { CollectionSort } from "@/types/global";
 import useSort from "@/hooks/useSort";
 import NewCollectionModal from "@/components/ModalContent/NewCollectionModal";
 import PageHeader from "@/components/PageHeader";
@@ -11,12 +10,13 @@ import getServerSideProps from "@/lib/client/getServerSideProps";
 import { useTranslation } from "next-i18next";
 import { useCollections } from "@/hooks/store/collections";
 import { dropdownTriggerer } from "@/lib/client/utils";
+import CollectionSortDropdown from "@/components/CollectionSortDropdown";
 
 export default function Collections() {
   const { t } = useTranslation();
   const { data: collections = [] } = useCollections();
-  const [sortBy, setSortBy] = useState<Sort>(
-    Number(localStorage.getItem("sortBy")) ?? Sort.DateNewestFirst
+  const [sortBy, setSortBy] = useState<CollectionSort>(
+    Number(localStorage.getItem("collectionSortBy")) ?? CollectionSort.NameAZ
   );
   const [sortedCollections, setSortedCollections] = useState(collections);
 
@@ -63,7 +63,7 @@ export default function Collections() {
           </div>
           <div className="flex gap-3 justify-end">
             <div className="relative mt-2">
-              <SortDropdown sortBy={sortBy} setSort={setSortBy} t={t} />
+              <CollectionSortDropdown sortBy={sortBy} setSort={setSortBy} t={t} />
             </div>
           </div>
         </div>

@@ -15,7 +15,16 @@ export default async function deleteCollection(
     collectionId,
   });
 
-  const memberHasAccess = collectionIsAccessible?.members.some(
+  if (!collectionIsAccessible) {
+    return { response: "Collection is not accessible.", status: 401 };
+  }
+  
+  const members = collectionIsAccessible.members;
+  if (!members) {
+    return { response: "Failed to get collection members.", status: 500 };
+  }
+  
+  const memberHasAccess = members.some(
     (e: UsersAndCollections) => e.userId === userId
   );
 

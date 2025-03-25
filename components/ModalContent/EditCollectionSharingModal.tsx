@@ -29,8 +29,40 @@ export default function EditCollectionSharingModal({
 }: Props) {
   const { t } = useTranslation();
 
-  const [collection, setCollection] =
-    useState<CollectionIncludingMembersAndLinkCount>(activeCollection);
+  const [collection, setCollection] = useState<CollectionIncludingMembersAndLinkCount>(activeCollection);
+  
+  useEffect(() => {
+    console.debug("[DEBUG] Modal - Active Collection 변경:", activeCollection.id, "멤버 수:", activeCollection.members?.length);
+    console.debug("[DEBUG] Modal - activeCollection hasInheritedMembers:", activeCollection.hasInheritedMembers);
+    
+    // active collection이 변경될 때마다 collection state 업데이트
+    setCollection(activeCollection);
+  }, [activeCollection]);
+
+  // 상속된 멤버와 직접 멤버를 분리
+  const [directMembers, setDirectMembers] = useState<Member[]>([]);
+  const [inheritedMembers, setInheritedMembers] = useState<Member[]>([]);
+
+  useEffect(() => {
+    // 멤버를 직접 멤버와 상속된 멤버로 분리
+    const direct: Member[] = [];
+    const inherited: Member[] = [];
+
+    if (collection && collection.members) {
+      collection.members.forEach(member => {
+        if (member.inherited) {
+          inherited.push(member);
+        } else {
+          direct.push(member);
+        }
+      });
+    }
+
+    setDirectMembers(direct);
+    setInheritedMembers(inherited);
+    
+    console.log("직접 멤버:", direct.length, "상속된 멤버:", inherited.length);
+  }, [collection, activeCollection]);
 
   const [submitLoader, setSubmitLoader] = useState(false);
   const updateCollection = useUpdateCollection();
@@ -40,11 +72,19 @@ export default function EditCollectionSharingModal({
       setSubmitLoader(true);
       if (!collection) return null;
 
+      // 업데이트할 때는 직접 멤버만 전송 (상속된 멤버는 제외)
+      const collectionToUpdate = {
+        ...collection,
+        members: directMembers,
+      };
+
+      console.debug("[DEBUG] 업데이트할 컬렉션:", collectionToUpdate.id, "직접 멤버 수:", directMembers.length);
+
       setSubmitLoader(true);
 
       const load = toast.loading(t("updating_collection"));
 
-      await updateCollection.mutateAsync(collection, {
+      await updateCollection.mutateAsync(collectionToUpdate, {
         onSettled: (data, error) => {
           setSubmitLoader(false);
           toast.dismiss(load);
@@ -67,6 +107,8 @@ export default function EditCollectionSharingModal({
 
   const publicCollectionURL = `${currentURL.origin}/public/collections/${collection.id}`;
 
+  console.log(publicCollectionURL); // URL이 올바르게 생성되었는지 확인
+
   const [memberIdentifier, setMemberIdentifier] = useState("");
 
   const [collectionOwner, setCollectionOwner] = useState<
@@ -87,9 +129,13 @@ export default function EditCollectionSharingModal({
   const setMemberState = (newMember: Member) => {
     if (!collection) return null;
 
+    // 새 멤버는 직접 멤버로 추가
+    setDirectMembers([...directMembers, newMember]);
+    
+    // 전체 collection.members도 업데이트
     setCollection({
       ...collection,
-      members: [...collection.members, newMember],
+      members: [...directMembers, ...inheritedMembers, newMember],
     });
 
     setMemberIdentifier("");
@@ -191,9 +237,10 @@ export default function EditCollectionSharingModal({
           </>
         )}
 
-        {collection?.members[0]?.user && (
+        {(directMembers.length > 0 || inheritedMembers.length > 0 || collectionOwner.id) && (
           <>
             <div className="flex flex-col divide-y divide-neutral-content border border-neutral-content rounded-xl bg-base-200">
+              {/* 컬렉션 소유자 */}
               <div
                 className="relative p-3 bg-base-200 rounded-xl flex gap-2 justify-between"
                 title={`@${collectionOwner.username} is the owner of this collection`}
@@ -227,7 +274,8 @@ export default function EditCollectionSharingModal({
 
               <div className="divider my-0 last:hidden h-[3px]"></div>
 
-              {collection.members
+              {/* 직접 멤버 */}
+              {directMembers
                 .sort((a, b) => (a.userId as number) - (b.userId as number))
                 .map((e, i) => {
                   const roleLabel =
@@ -240,7 +288,7 @@ export default function EditCollectionSharingModal({
                           : undefined;
 
                   return (
-                    <React.Fragment key={i}>
+                    <React.Fragment key={`direct-${i}`}>
                       <div className="relative p-3 bg-base-200 rounded-xl flex gap-2 justify-between border-none">
                         <div
                           className={"flex items-center justify-between w-full"}
@@ -298,14 +346,15 @@ export default function EditCollectionSharingModal({
                                             canDelete: false,
                                           };
                                           const updatedMembers =
-                                            collection.members.map((member) =>
+                                            directMembers.map((member) =>
                                               member.userId === e.userId
                                                 ? updatedMember
                                                 : member
                                             );
+                                          setDirectMembers(updatedMembers);
                                           setCollection({
                                             ...collection,
-                                            members: updatedMembers,
+                                            members: [...updatedMembers, ...inheritedMembers],
                                           });
                                           (
                                             document?.activeElement as HTMLElement
@@ -345,14 +394,15 @@ export default function EditCollectionSharingModal({
                                             canDelete: false,
                                           };
                                           const updatedMembers =
-                                            collection.members.map((member) =>
+                                            directMembers.map((member) =>
                                               member.userId === e.userId
                                                 ? updatedMember
                                                 : member
                                             );
+                                          setDirectMembers(updatedMembers);
                                           setCollection({
                                             ...collection,
-                                            members: updatedMembers,
+                                            members: [...updatedMembers, ...inheritedMembers],
                                           });
                                           (
                                             document?.activeElement as HTMLElement
@@ -392,14 +442,15 @@ export default function EditCollectionSharingModal({
                                             canDelete: true,
                                           };
                                           const updatedMembers =
-                                            collection.members.map((member) =>
+                                            directMembers.map((member) =>
                                               member.userId === e.userId
                                                 ? updatedMember
                                                 : member
                                             );
+                                          setDirectMembers(updatedMembers);
                                           setCollection({
                                             ...collection,
-                                            members: updatedMembers,
+                                            members: [...updatedMembers, ...inheritedMembers],
                                           });
                                           (
                                             document?.activeElement as HTMLElement
@@ -432,15 +483,127 @@ export default function EditCollectionSharingModal({
                                 title={t("remove_member")}
                                 onClick={() => {
                                   const updatedMembers =
-                                    collection.members.filter((member) => {
+                                    directMembers.filter((member) => {
                                       return (
                                         member.user.username !== e.user.username
                                       );
                                     });
+                                  setDirectMembers(updatedMembers);
                                   setCollection({
                                     ...collection,
-                                    members: updatedMembers,
+                                    members: [...updatedMembers, ...inheritedMembers],
                                   });
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="divider my-0 last:hidden h-[3px]"></div>
+                    </React.Fragment>
+                  );
+                })}
+
+              {/* 상속된 멤버 섹션 제목 */}
+              {inheritedMembers.length > 0 && (
+                <>
+                  <div className="relative p-3 bg-base-300 rounded-xl flex gap-2 justify-between border-none">
+                    <div className="w-full">
+                      <p className="text-sm font-semibold">{t("inherited_members")}</p>
+                      <p className="text-xs text-neutral">{t("inherited_members_desc")}</p>
+                    </div>
+                  </div>
+                  <div className="divider my-0 last:hidden h-[3px]"></div>
+                </>
+              )}
+
+              {/* 상속된 멤버 목록 */}
+              {inheritedMembers
+                .sort((a, b) => (a.userId as number) - (b.userId as number))
+                .map((e, i) => {
+                  const roleLabel =
+                    e.canCreate && e.canUpdate && e.canDelete
+                      ? t("admin")
+                      : e.canCreate && !e.canUpdate && !e.canDelete
+                        ? t("contributor")
+                        : !e.canCreate && !e.canUpdate && !e.canDelete
+                          ? t("viewer")
+                          : undefined;
+
+                  return (
+                    <React.Fragment key={`inherited-${i}`}>
+                      <div className="relative p-3 bg-base-200 rounded-xl flex gap-2 justify-between border-none">
+                        <div
+                          className={"flex items-center justify-between w-full"}
+                        >
+                          <div className={"flex items-center"}>
+                            <div className={"shrink-0"}>
+                              <ProfilePhoto
+                                src={e.user.image ? e.user.image : undefined}
+                                name={e.user.name}
+                              />
+                            </div>
+                            <div className={"grow ml-2"}>
+                              <p className="text-sm font-semibold">
+                                {e.user.name}
+                              </p>
+                              <p className="text-xs text-neutral">
+                                @{e.user.username}
+                              </p>
+                              {e.inheritedFromCollectionName && (
+                                <p className="text-xs text-neutral">
+                                  {t("inherited_from", { name: e.inheritedFromCollectionName })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={"flex items-center gap-2"}>
+                            <p className="text-sm text-neutral">
+                              {roleLabel} <span className="text-xs">({t("inherited")})</span>
+                            </p>
+
+                            {permissions === true && !isPublicRoute && (
+                              <i
+                                className={
+                                  "bi-slash-circle text-xl btn btn-sm btn-square btn-ghost text-neutral hover:text-red-500 dark:hover:text-red-500 duration-100 cursor-pointer"
+                                }
+                                title={t("override_inherited_member")}
+                                onClick={() => {
+                                  // 상속된 멤버를 무효화하려면 canCreate, canUpdate, canDelete를 모두 false로 설정한 멤버를 직접 멤버로 추가함
+                                  const overrideMember = {
+                                    userId: e.userId,
+                                    canCreate: false,
+                                    canUpdate: false,
+                                    canDelete: false,
+                                    user: e.user,
+                                    collectionId: collection.id
+                                  };
+                                  
+                                  // 이미 직접 멤버로 추가되어 있는지 확인
+                                  const existingMemberIndex = directMembers.findIndex(
+                                    (member) => member.userId === e.userId
+                                  );
+                                  
+                                  let newDirectMembers;
+                                  if (existingMemberIndex >= 0) {
+                                    // 이미 있으면 업데이트
+                                    newDirectMembers = [...directMembers];
+                                    newDirectMembers[existingMemberIndex] = overrideMember;
+                                  } else {
+                                    // 없으면 추가
+                                    newDirectMembers = [...directMembers, overrideMember];
+                                  }
+                                  
+                                  setDirectMembers(newDirectMembers);
+                                  
+                                  // collection.members 업데이트 시 기존 상속된 멤버는 유지
+                                  setCollection({
+                                    ...collection,
+                                    members: [...newDirectMembers, ...inheritedMembers],
+                                  });
+                                  
+                                  toast.success(t("inherited_member_overridden"));
                                 }}
                               />
                             )}

@@ -33,6 +33,9 @@ export interface Member {
   canUpdate: boolean;
   canDelete: boolean;
   user: OptionalExcluding<User, "email" | "username" | "name" | "id">;
+  inherited?: boolean;
+  inheritedFromCollectionId?: number;
+  inheritedFromCollectionName?: string;
 }
 
 export interface CollectionIncludingMembersAndLinkCount
@@ -43,6 +46,7 @@ export interface CollectionIncludingMembersAndLinkCount
   updatedAt?: string;
   _count?: { links: number };
   members: Member[];
+  hasInheritedMembers?: boolean;
 }
 
 export interface TagIncludingLinkCount extends Tag {
@@ -79,6 +83,13 @@ export enum Sort {
   NameZA,
   DescriptionAZ,
   DescriptionZA,
+}
+
+export enum CollectionSort {
+  NameAZ,
+  NameZA,
+  DateNewestFirst,
+  DateOldestFirst,
 }
 
 export type Order = { [key: string]: "asc" | "desc" };
