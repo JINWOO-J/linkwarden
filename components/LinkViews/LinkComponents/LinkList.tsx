@@ -92,7 +92,7 @@ export default function LinkCardCompact({ link, editMode }: Props) {
 
   const selectable =
     editMode &&
-    (permissions === true || permissions?.canCreate || permissions?.canDelete);
+    (permissions && (permissions === true || permissions.canCreate || permissions.canDelete));
 
   const router = useRouter();
 

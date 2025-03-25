@@ -118,7 +118,7 @@ export default function LinkActions({
                 {t("show_link_details")}
               </div>
             </li>
-            {(permissions === true || permissions?.canUpdate) && (
+            {(permissions && (permissions === true || permissions.canUpdate)) && (
               <li>
                 <div
                   role="button"
@@ -133,7 +133,7 @@ export default function LinkActions({
                 </div>
               </li>
             )}
-            {(permissions === true || permissions?.canDelete) && (
+            {(permissions && (permissions === true || permissions.canDelete)) && (
               <li>
                 <div
                   role="button"

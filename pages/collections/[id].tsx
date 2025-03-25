@@ -233,7 +233,7 @@ export default function Index() {
                   </div>
                 </li>
                 {(permissions === true || 
-                  (typeof permissions === 'object' && permissions !== false && 
+                  (permissions && typeof permissions === 'object' && 
                     (permissions.canCreate || 
                      permissions.canUpdate || 
                      permissions.canDelete))) && (
@@ -384,14 +384,14 @@ export default function Index() {
           setSortBy={setSortBy}
           editMode={
             permissions === true ||
-            (typeof permissions === 'object' && permissions !== false && 
+            (permissions && typeof permissions === 'object' && 
               (permissions.canUpdate || permissions.canDelete))
               ? editMode
               : undefined
           }
           setEditMode={
             permissions === true ||
-            (typeof permissions === 'object' && permissions !== false && 
+            (permissions && typeof permissions === 'object' && 
               (permissions.canUpdate || permissions.canDelete))
               ? setEditMode
               : undefined

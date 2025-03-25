@@ -221,7 +221,7 @@ export default function LinkDetails({
           )}
 
           {!standalone &&
-            (permissions === true || permissions?.canUpdate) &&
+            (permissions && (permissions === true || permissions.canUpdate)) &&
             !isPublicRoute && (
               <div className="absolute top-0 bottom-0 left-0 right-0 opacity-0 group-hover:opacity-100 duration-100 flex justify-end items-end">
                 <label className="btn btn-xs mb-2 mr-3 opacity-50 hover:opacity-100">
@@ -262,7 +262,7 @@ export default function LinkDetails({
         </div>
 
         {!standalone &&
-        (permissions === true || permissions?.canUpdate) &&
+        (permissions && (permissions === true || permissions.canUpdate)) &&
         !isPublicRoute ? (
           <div className="-mt-14 ml-8 relative w-fit pb-2">
             <div className="tooltip tooltip-bottom" data-tip={t("change_icon")}>
@@ -502,7 +502,7 @@ export default function LinkDetails({
                 </p>
 
                 {onUpdateArchive &&
-                  (permissions === true || permissions?.canUpdate) &&
+                  (permissions && (permissions === true || permissions.canUpdate)) &&
                   !isPublicRoute && (
                     <div
                       className="tooltip tooltip-bottom"

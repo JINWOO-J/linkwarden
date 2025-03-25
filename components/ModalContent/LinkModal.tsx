@@ -51,7 +51,7 @@ export default function LinkModal({
           onClick={() => onClose()}
         ></div>
 
-        {(permissions === true || permissions?.canUpdate) && !isPublicRoute && (
+        {(permissions && (permissions === true || permissions.canUpdate)) && !isPublicRoute && (
           <div className="flex gap-1 h-8 rounded-full bg-neutral-content bg-opacity-50 text-base-content p-1 text-xs duration-100 select-none z-10">
             <div
               className={clsx(
@@ -110,7 +110,7 @@ export default function LinkModal({
                   </li>
                 }
                 {link.type === "url" &&
-                  (permissions === true || permissions?.canUpdate) && (
+                  (permissions && (permissions === true || permissions.canUpdate)) && (
                     <li>
                       <div
                         role="button"
@@ -125,7 +125,7 @@ export default function LinkModal({
                       </div>
                     </li>
                   )}
-                {(permissions === true || permissions?.canDelete) && (
+                {(permissions && (permissions === true || permissions.canDelete)) && (
                   <li>
                     <div
                       role="button"

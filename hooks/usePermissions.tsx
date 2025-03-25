@@ -9,9 +9,7 @@ export default function usePermissions(collectionId: number) {
   const { data: collections = [] } = useCollections();
   const { data: user = {} } = useUser();
   
-  const [collectionPermissions, setCollectionPermissions] = useState<
-    true | Member | false
-  >(false);
+  const [collectionPermissions, setCollectionPermissions] = useState<false | Member | true>(false);
   
   useEffect(() => {
     // Always reset permissions when collectionId changes
