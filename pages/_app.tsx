@@ -14,6 +14,11 @@ import { appWithTranslation } from "next-i18next";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+if (process.env.APP_ENV === 'production') {
+  console.log("🚀 Production mode - It will not show debug logs")
+  console.debug = () => {};
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
